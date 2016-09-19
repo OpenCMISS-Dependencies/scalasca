@@ -1,0 +1,9 @@
+fc3ba7104270bd2d5d3e0f0d3cdd191d
+1ca4c84c4537e15895b0ba2f1356b718
+../src/otf2_attic_types.h
+otf2_attic_types.tmpl.h
+../share/otf2/otf2.types
+../share/otf2/otf2.enums
+../share/otf2/otf2.defs
+../share/otf2/otf2.events
+../share/otf2/otf2.snaps

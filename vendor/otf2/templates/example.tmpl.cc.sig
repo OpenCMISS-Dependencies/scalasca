@@ -1,0 +1,9 @@
+7d006ce33660392cf830d428f2f075c8
+e9614e999df57479dc024002f24622f4
+../templates/example.cc
+example.tmpl.cc
+../share/otf2/otf2.types
+../share/otf2/otf2.enums
+../share/otf2/otf2.defs
+../share/otf2/otf2.events
+../share/otf2/otf2.snaps

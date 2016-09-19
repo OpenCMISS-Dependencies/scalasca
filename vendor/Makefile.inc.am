@@ -1,0 +1,75 @@
+## -*- mode: makefile -*-
+##*************************************************************************##
+##  SCALASCA    http://www.scalasca.org/                                   ##
+##*************************************************************************##
+##  Copyright (c) 1998-2015                                                ##
+##  Forschungszentrum Juelich GmbH, Juelich Supercomputing Centre          ##
+##                                                                         ##
+##  Copyright (c) 2009-2013                                                ##
+##  German Research School for Simulation Sciences GmbH,                   ##
+##  Laboratory for Parallel Programming                                    ##
+##                                                                         ##
+##  This software may be modified and distributed under the terms of       ##
+##  a BSD-style license.  See the COPYING file in the package base         ##
+##  directory for details.                                                 ##
+##*************************************************************************##
+
+
+## Common stuff
+EXTRA_DIST += \
+    $(SRC_ROOT)vendor/common/COPYING
+
+
+## CUBE4 writer
+if ! HAVE_EXTERNAL_CUBE_WRITER
+
+## Get dependencies right: @CUBE_WRITER_LIBS@ is known only at configure
+## time. automake therefore can't create dependencies at bootstrap time
+## (which it does for hardcoded .la files). Ensure libcube4w.la is built
+## in the beginning.
+BUILT_SOURCES += libcube4w.la
+
+noinst_LTLIBRARIES += libcube4w.la
+libcube4w_la_SOURCES = \
+    $(SRC_ROOT)vendor/cube/cubew_cartesian.h \
+    $(SRC_ROOT)vendor/cube/cubew_cartesian.c \
+    $(SRC_ROOT)vendor/cube/cubew_cnode.h \
+    $(SRC_ROOT)vendor/cube/cubew_cnode.c \
+    $(SRC_ROOT)vendor/cube/cubew_compat_platform.h \
+    $(SRC_ROOT)vendor/cube/cubew_compat_platform.c \
+    $(SRC_ROOT)vendor/cube/cubew_cube.h \
+    $(SRC_ROOT)vendor/cube/cubew_cube.c \
+    $(SRC_ROOT)vendor/cube/cubew_cubew.h \
+    $(SRC_ROOT)vendor/cube/cubew_cubew.c \
+    $(SRC_ROOT)vendor/cube/cubew_location.h \
+    $(SRC_ROOT)vendor/cube/cubew_location.c \
+    $(SRC_ROOT)vendor/cube/cubew_location_group.h \
+    $(SRC_ROOT)vendor/cube/cubew_location_group.c \
+    $(SRC_ROOT)vendor/cube/cubew_meta_data_writer.h \
+    $(SRC_ROOT)vendor/cube/cubew_meta_data_writer.c \
+    $(SRC_ROOT)vendor/cube/cubew_metric.h \
+    $(SRC_ROOT)vendor/cube/cubew_metric.c \
+    $(SRC_ROOT)vendor/cube/cubew_region.h \
+    $(SRC_ROOT)vendor/cube/cubew_region.c \
+    $(SRC_ROOT)vendor/cube/cubew_report_layouts.h \
+    $(SRC_ROOT)vendor/cube/cubew_report_layouts.c \
+    $(SRC_ROOT)vendor/cube/cubew_report_layouts_types.h \
+    $(SRC_ROOT)vendor/cube/cubew_services.h \
+    $(SRC_ROOT)vendor/cube/cubew_services.c \
+    $(SRC_ROOT)vendor/cube/cubew_system_tree_node.h \
+    $(SRC_ROOT)vendor/cube/cubew_system_tree_node.c \
+    $(SRC_ROOT)vendor/cube/cubew_types.h \
+    $(SRC_ROOT)vendor/cube/cubew_vector.h
+libcube4w_la_CPPFLAGS = \
+    $(AM_CPPFLAGS) \
+    -DCUBE_AS_SVN_EXTERNAL \
+    -U_FORTIFY_SOURCE
+
+EXTRA_DIST += \
+    $(SRC_ROOT)vendor/cube/COPYING \
+    $(SRC_ROOT)vendor/cube/cubew_file_layout_embedded.h \
+    $(SRC_ROOT)vendor/cube/cubew_file_layout_embedded.c \
+    $(SRC_ROOT)vendor/cube/cubew_tar_writing.h \
+    $(SRC_ROOT)vendor/cube/cubew_tar_writing.c
+
+endif ! HAVE_EXTERNAL_CUBE_WRITER

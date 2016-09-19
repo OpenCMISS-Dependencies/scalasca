@@ -1,0 +1,9 @@
+9398acbf614cc734bd4af32ab21c22ba
+6b5476f39d7587ffd11025f6edbb6a6e
+../src/tools/otf2_snapshots/otf2_snapshots_events.hpp
+otf2_snapshots_events.tmpl.hpp
+../share/otf2/otf2.types
+../share/otf2/otf2.enums
+../share/otf2/otf2.defs
+../share/otf2/otf2.events
+../share/otf2/otf2.snaps

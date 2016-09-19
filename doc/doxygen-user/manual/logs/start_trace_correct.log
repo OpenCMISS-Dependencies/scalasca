@@ -1,0 +1,43 @@
+  % export SCAN_ANALYZE_OPTS="--time-correct"
+  % scalasca -analyze -a mpiexec -n 64 ./bt.D.64
+  S=C=A=N: Scalasca 2.2 trace analysis
+  S=C=A=N: ./scorep_bt_64_trace experiment archive
+  S=C=A=N: Thu Jan 29 22:37:16 2015: Analyze start
+  mpiexec -n 64 scout.mpi --time-correct ./scorep_bt_64_trace/traces.otf2
+  SCOUT   Copyright (c) 1998-2015 Forschungszentrum Juelich GmbH
+          Copyright (c) 2009-2014 German Research School for Simulation
+                                  Sciences GmbH
+
+  Analyzing experiment archive ./scorep_bt_64_trace/traces.otf2
+
+  Opening experiment archive ... done (0.005s).
+  Reading definition data    ... done (0.009s).
+  Reading event trace data   ... done (1.349s).
+  Preprocessing              ... done (2.063s).
+  Timestamp correction       ... done (0.683s).
+  Analyzing trace data       ...
+    Wait-state detection (fwd)      (1/5) ... done (1.170s).
+    Wait-state detection (bwd)      (2/5) ... done (0.570s).
+    Synchpoint exchange             (3/5) ... done (1.009s).
+    Critical-path & delay analysis  (4/5) ... done (0.893s).
+    Propagating wait-state exchange (5/5) ... done (0.502s).
+  done (4.150s).
+  Writing analysis report    ... done (0.185s).
+
+  Max. memory usage         : 207.742MB
+
+  	# passes        : 1
+  	# violated      : 2679
+  	# corrected     : 18791313
+  	# reversed-p2p  : 2679
+  	# reversed-coll : 0
+  	# reversed-omp  : 0
+  	# events        : 263738186
+  	max. error      : 0.000072 [s]
+  	error at final. : 0.000000 [%]
+  	Max slope       : 0.010000000
+
+  Total processing time     : 8.580s
+  S=C=A=N: Thu Jan 29 22:37:25 2015: Analyze done (status=0) 9s
+  Warning: 2.968GB of analyzed trace data retained in ./scorep_bt_64_trace/traces!
+  S=C=A=N: ./scorep_bt_64_trace complete.

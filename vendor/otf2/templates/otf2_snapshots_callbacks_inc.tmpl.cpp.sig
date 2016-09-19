@@ -1,0 +1,9 @@
+12b37f2105f24c0583fa5ed6388c67ec
+de312bb950b449fa6a8bd17d0d68b593
+../src/tools/otf2_snapshots/otf2_snapshots_callbacks_inc.cpp
+otf2_snapshots_callbacks_inc.tmpl.cpp
+../share/otf2/otf2.types
+../share/otf2/otf2.enums
+../share/otf2/otf2.defs
+../share/otf2/otf2.events
+../share/otf2/otf2.snaps

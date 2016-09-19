@@ -1,0 +1,125 @@
+  % export SCOREP_TOTAL_MEMORY=55M
+  % scalasca -analyze -q -t -f npb-bt.filt mpiexec -n 64 ./bt.D.64
+  S=C=A=N: Scalasca 2.2 trace collection and analysis
+  S=C=A=N: ./scorep_bt_64_trace experiment archive
+  S=C=A=N: Thu Jan 29 22:29:02 2015: Collect start
+  mpiexec -n 64  [...]  ./bt.D.64
+
+
+   NAS Parallel Benchmarks 3.3 -- BT Benchmark
+
+   No input file inputbt.data. Using compiled defaults
+   Size:  408x 408x 408
+   Iterations:  250    dt:   0.0000200
+   Number of active processes:    64
+
+   Time step    1
+   Time step   20
+   Time step   40
+   Time step   60
+   Time step   80
+   Time step  100
+   Time step  120
+   Time step  140
+   Time step  160
+   Time step  180
+   Time step  200
+   Time step  220
+   Time step  240
+   Time step  250
+   Verification being performed for class D
+   accuracy setting for epsilon =  0.1000000000000E-07
+   Comparison of RMS-norms of residual
+             1 0.2533188551738E+05 0.2533188551738E+05 0.1479210131727E-12
+             2 0.2346393716980E+04 0.2346393716980E+04 0.8488743310506E-13
+             3 0.6294554366904E+04 0.6294554366904E+04 0.3034271788588E-14
+             4 0.5352565376030E+04 0.5352565376030E+04 0.8597827149538E-13
+             5 0.3905864038618E+05 0.3905864038618E+05 0.6650300273080E-13
+   Comparison of RMS-norms of solution error
+             1 0.3100009377557E+03 0.3100009377557E+03 0.1373406191445E-12
+             2 0.2424086324913E+02 0.2424086324913E+02 0.1582835864248E-12
+             3 0.7782212022645E+02 0.7782212022645E+02 0.4053872777553E-13
+             4 0.6835623860116E+02 0.6835623860116E+02 0.3762882153975E-13
+             5 0.6065737200368E+03 0.6065737200368E+03 0.2474004739002E-13
+   Verification Successful
+
+
+   BT Benchmark Completed.
+   Class           =                        D
+   Size            =            408x 408x 408
+   Iterations      =                      250
+   Time in seconds =                   477.71
+   Total processes =                       64
+   Compiled procs  =                       64
+   Mop/s total     =                122114.71
+   Mop/s/process   =                  1908.04
+   Operation type  =           floating point
+   Verification    =               SUCCESSFUL
+   Version         =                      3.3
+   Compile date    =              29 Jan 2015
+
+   Compile options:
+      MPIF77       = scorep mpif77
+      FLINK        = $(MPIF77)
+      FMPI_LIB     = (none)
+      FMPI_INC     = (none)
+      FFLAGS       = -O2
+      FLINKFLAGS   = -O2
+      RAND         = (none)
+
+
+   Please send the results of this run to:
+
+   NPB Development Team
+   Internet: npb@nas.nasa.gov
+
+   If email is not available, send this to:
+
+   MS T27A-1
+   NASA Ames Research Center
+   Moffett Field, CA  94035-1000
+
+   Fax: 650-604-3957
+
+
+  S=C=A=N: Thu Jan 29 22:37:06 2015: Collect done (status=0) 484s
+  S=C=A=N: Thu Jan 29 22:37:06 2015: Analyze start
+  mpiexec -n 64 scout.mpi ./scorep_bt_64_trace/traces.otf2
+  SCOUT   Copyright (c) 1998-2015 Forschungszentrum Juelich GmbH
+          Copyright (c) 2009-2014 German Research School for Simulation
+                                  Sciences GmbH
+
+  Analyzing experiment archive ./scorep_bt_64_trace/traces.otf2
+
+  Opening experiment archive ... done (0.017s).
+  Reading definition data    ... done (0.018s).
+  Reading event trace data   ... done (1.189s).
+  Preprocessing              ... done (2.067s).
+  Analyzing trace data       ...
+    Wait-state detection (fwd)      (1/5) ... done (1.137s).
+    Wait-state detection (bwd)      (2/5) ... done (0.538s).
+    Synchpoint exchange             (3/5) ... done (1.016s).
+    Critical-path & delay analysis  (4/5) ... done (0.888s).
+    Propagating wait-state exchange (5/5) ... done (0.475s).
+  done (4.065s).
+  Writing analysis report    ... done (0.137s).
+
+  Max. memory usage         : 175.965MB
+  *** WARNING ***
+  9982 clock condition violations detected:
+     Point-to-point:     9982
+     Collective    :        0
+  This usually leads to inconsistent analysis results.
+
+  Try running the analyzer using the '--time-correct' command-line
+  option to apply a correction algorithm.
+
+
+  Total processing time     : 7.628s
+  S=C=A=N: Thu Jan 29 22:37:15 2015: Analyze done (status=0) 9s
+  Warning: 2.968GB of analyzed trace data retained in ./scorep_bt_64_trace/traces!
+  S=C=A=N: ./scorep_bt_64_trace complete.
+
+  % ls scorep_bt_64_trace
+  scorep.cfg   scorep.log   scout.log  traces.def   trace.stat
+  scorep.filt  scout.cubex  traces     traces.otf2

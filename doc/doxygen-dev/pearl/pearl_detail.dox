@@ -1,0 +1,30 @@
+/****************************************************************************
+**  SCALASCA    http://www.scalasca.org/                                   **
+*****************************************************************************
+**  Copyright (c) 1998-2013                                                **
+**  Forschungszentrum Juelich GmbH, Juelich Supercomputing Centre          **
+**                                                                         **
+**  Copyright (c) 2009-2013                                                **
+**  German Research School for Simulation Sciences GmbH,                   **
+**  Laboratory for Parallel Programming                                    **
+**                                                                         **
+**  This software may be modified and distributed under the terms of       **
+**  a BSD-style license.  See the COPYING file in the package base         **
+**  directory for details.                                                 **
+****************************************************************************/
+
+
+//--- Namespace description -------------------------------------------------
+
+/**
+@namespace pearl::detail
+@brief     Internal namespace of the PEARL library.
+
+The C++ namespace pearl::detail encapsulates all classes, functions, and
+identifiers which are internal to the Parallel %Event Analysis and Replay
+Library PEARL.  Members of this namespace shall only be used to implement
+other functionality of the PEARL library, and therefore must never be called
+directly by end users.  The sole purpose of providing internal functionality
+in a publicly accessible, non-anonymous namespace is to allow for proper unit
+testing.
+*/

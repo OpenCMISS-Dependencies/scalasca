@@ -1,0 +1,414 @@
+#!/bin/sh
+##*************************************************************************##
+##  SCALASCA    http://www.scalasca.org/                                   ##
+##*************************************************************************##
+##  Copyright (c) 1998-2015                                                ##
+##  Forschungszentrum Juelich GmbH, Juelich Supercomputing Centre          ##
+##                                                                         ##
+##  Copyright (c) 2014                                                     ##
+##  German Research School for Simulation Sciences GmbH,                   ##
+##  Laboratory for Parallel Programming                                    ##
+##                                                                         ##
+##  Copyright (c) 2014                                                     ##
+##  RWTH Aachen University, JARA-HPC                                       ##
+##                                                                         ##
+##  This software may be modified and distributed under the terms of       ##
+##  a BSD-style license.  See the COPYING file in the package base         ##
+##  directory for details.                                                 ##
+##*************************************************************************##
+
+
+# "Constants"
+VERSION="@VERSION@"
+PKGDATADIR="@PKGDATADIR@"
+
+SCORER=`which scorep-score 2>/dev/null`
+MAPPER=`which cube_remap2 2>/dev/null`
+MERGER=`which cube_merge 2>/dev/null`
+VIEWER=`which cube 2>/dev/null`
+CHECKER=`which cube_sanity 2>/dev/null`
+DUMPER=`which cube_dump 2>/dev/null`
+
+SCOREP_CONFIG=`which scorep-config 2>/dev/null`
+
+SCALASCA_DOCDIR=@DOCDIR@/patterns
+SCOREP_DOCDIR=
+if [ -n "${SCORER}" ]; then
+  SCOREP_DOCDIR=`dirname ${SCORER}`/../share/doc/scorep/profile
+fi
+
+CUBE_EXTENSION="cubex"
+CUBE_GZ_EXTENSION=""
+
+# skip check on website
+CUBE_DISABLE_HTTP_DOCS=${CUBE_DISABLE_HTTP_DOCS:-"1"}
+
+# Variables
+unset FILE
+unset FILTER
+unset FORCE
+unset VIEW
+unset CHECKER_EXTENT
+DO_CHECK="false"
+CHECKER_EXTENT=none
+CHECKER_EXT=check
+CHECKER_VERBOSITY=1
+CHECKER_OPTS="-v ${CHECKER_VERBOSITY} -x -n"
+CHECKER_OUTPUT="cube_sanity.out"
+QUIET=">/dev/null"
+IDLEM=" -s"
+
+# show usage when executed without argument
+if [ $# -eq 0 ]; then
+  echo "Scalasca $VERSION: analysis report explorer"
+  echo "usage: `basename $0` [-v] [-s] [-f filtfile] [-F] <experiment archive | cube file>"
+  echo "   -c <none | quick | full> : Level of sanity checks for newly created reports"
+  echo "   -F                       : Force remapping of already existing reports"
+  echo "   -f filtfile              : Use specified filter file when doing scoring"
+  echo "   -s                       : Skip display and output textual score report"
+  echo "   -v                       : Enable verbose mode"
+  echo "   -n                       : Do not include idle thread metric"
+  exit 1
+fi
+
+# Process command line arguments
+while getopts ":c:Ff:nsv" arg; do
+  case $arg in
+    c)      # Level of sanity check
+      CHECKER_EXTENT=$OPTARG
+      case $CHECKER_EXTENT in
+          none)
+            DO_CHECK="false"
+            ;;
+          quick)
+            DO_CHECK="true"
+            CHECKER_OPTS="-v ${CHECKER_VERBOSITY} -x -n"
+            ;;
+          full)
+            DO_CHECK="true"
+            CHECKER_OPTS="-v ${CHECKER_VERBOSITY}"
+            ;;
+          *)
+            echo "ERROR: Unknown option $OPTARG to option -$arg."
+            exit 1
+            ;;
+      esac      
+      ;;
+
+    F)      # force remap
+      FORCE=yes
+      ;;
+
+    f)      # score filter
+      FILTER=$OPTARG
+      if [ ! -f ${FILTER} ]; then
+        echo "ERROR: Filter file \"${FILTER}\" not found!"
+        exit 1
+      fi
+      ;;
+
+    n)      # no idle thread metric
+      IDLEM=""
+      ;;
+
+    s)      # score & skip display
+      VIEW=no
+      ;;
+
+    v)      # verbose
+      unset QUIET
+      ;;
+
+    *)      # unknown -> print usage
+      exec $0 # usage
+      ;;
+  esac
+done
+shift `expr $OPTIND - 1`
+
+# Validate remaining command line
+if [ $# -ne 1 ]; then
+  exec $0 # usage
+fi
+
+# Process file/directory
+if [ -f $1 ]; then
+  FILE="$1"
+else
+  # Verify experiment archive
+  ARCHIVE=`dirname $1`/`basename $1 /`
+  if [ ! -d ${ARCHIVE} ]; then
+    echo "ERROR: Missing experiment archive '${ARCHIVE}'!"
+    exit 1
+  fi
+
+  # Verify experiment unlocked
+  if [ -f ${ARCHIVE}/epik.lock ]; then
+    echo "ERROR: Experiment archive '${ARCHIVE}' still locked!"
+    exit 1
+  fi
+
+  CUBE_FILES=`ls ${ARCHIVE}/*.${CUBE_EXTENSION} ${ARCHIVE}/*.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} 2> /dev/null | wc -l`
+  if [ ${CUBE_FILES} -eq 0 ]; then
+    echo "ERROR: No CUBE file in experiment archive '${ARCHIVE}'!"
+    exit 1
+  fi
+
+  # Check which files are available or need to be remapped
+  if [ -f ${ARCHIVE}/profile.${CUBE_EXTENSION} ]; then
+    NEWER1=`find ${ARCHIVE}/profile.${CUBE_EXTENSION} -prune -newer ${ARCHIVE}/summary.${CUBE_EXTENSION} 2>/dev/null`
+    NEWER2=`find ${ARCHIVE}/profile.${CUBE_EXTENSION} -prune -newer ${ARCHIVE}/summary.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} 2>/dev/null`
+    if [ -n "$FORCE" ] ||
+       [ ! -f ${ARCHIVE}/summary.${CUBE_EXTENSION} -a ! -f ${ARCHIVE}/summary.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} ] ||
+       [ -n "${NEWER1}" -a -n "${NEWER2}" ]; then
+      # Check availability of remapper
+      if [ -z "${MAPPER}" ]; then
+        echo "ERROR: cube_remap2 is not available!"
+        exit 1
+      fi
+      if [ ! -x "${MAPPER}" ]; then
+        echo "ERROR: ${MAPPER} is not executable!"
+        exit 1
+      fi
+      # Check availability of cube_dump
+      if [ -z "${DUMPER}" ]; then
+        echo "ERROR: cube_dump is not available!"
+        exit 1
+      fi
+      if [ ! -x "${DUMPER}" ]; then
+        echo "ERROR: ${DUMPER} is not executable!"
+        exit 1
+      fi
+      # Verify writability of experiment archive
+      if [ ! -w ${ARCHIVE} ]; then
+        echo "ERROR: Experiment archive ${ARCHIVE} needs to be writable!"
+        exit 1
+      fi
+      # Determine remapper specification file
+      SCOREP_SPEC=
+      if [ -n ${SCOREP_CONFIG} ]; then
+        SCOREP_SPEC=`${SCOREP_CONFIG} --remap-specfile 2>/dev/null`
+      fi
+      if [ -n "${SCOREP_SPEC}" -o ! -r "${SCOREP_SPEC}" ]; then
+        if [ -n "${SCORER}" ]; then
+          SCOREP_SPEC=`dirname ${SCORER}`/../share/scorep/scorep.spec
+        fi
+        if [ -z "${SCOREP_SPEC}" -o ! -r "${SCOREP_SPEC}" ]; then 
+          SCOREP_SPEC=`dirname ${MAPPER}`/../share/doc/cube/example/scorep.spec
+          # Fall back to pre-Cube-4.2.3 location of spec file
+          if [ ! -r "${SCOREP_SPEC}" ]; then
+            SCOREP_SPEC=`dirname ${MAPPER}`/../share/cube/doc/example/scorep.spec
+          fi
+        fi
+      fi
+      # Verify accessibility of remapper specification file
+      if [ -z "${SCOREP_SPEC}" ]; then
+        echo "ERROR: Remapper specification file 'scorep.spec' not available!"
+        exit 1
+      fi
+      if [ ! -r "${SCOREP_SPEC}" ]; then
+        echo "ERROR: ${SCOREP_SPEC} not readable!"
+        exit 1
+      fi
+      # check if experiment contains Pthreads and deactivates the hard-coded metrics
+      CONTAINS_PTHREADS=`${DUMPER} -m visits -t aggr ${ARCHIVE}/profile.${CUBE_EXTENSION} | grep   "pthread" | awk '{print $NF}' | grep -vc  ^0`
+      if [ ${CONTAINS_PTHREADS} -gt 0 ]; then
+        IDLEM=""
+      fi
+      echo "INFO: Post-processing runtime summarization report..."
+      eval echo "INFO: Using spec: ${SCOREP_SPEC}" ${QUIET}
+      eval "${MAPPER} -d ${IDLEM} -r ${SCOREP_SPEC} -o ${ARCHIVE}/remap.out.${CUBE_EXTENSION} ${ARCHIVE}/profile.${CUBE_EXTENSION} ${QUIET} 2>&1"
+      UNZIPPED=1 #`head -1 ${ARCHIVE}/remap.out.${CUBE_EXTENSION} | cut -c1-10 | grep xml`
+      if [ -z "${UNZIPPED}" ]; then
+        mv ${ARCHIVE}/remap.out.${CUBE_EXTENSION} ${ARCHIVE}/summary.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}
+      else
+        mv ${ARCHIVE}/remap.out.${CUBE_EXTENSION} ${ARCHIVE}/summary.${CUBE_EXTENSION}
+      fi
+    fi
+    if [ "${DO_CHECK}" = "true" ]; then
+      echo "INFO: Checking runtime summarization report..."
+      CHECKER_OUTPUT=${ARCHIVE}/summary.${CHECKER_EXT}
+      if [ -z "${UNZIPPED} " ]; then
+          eval "${CHECKER} ${CHECKER_OPTS} -o ${CHECKER_OUTPUT} ${ARCHIVE}/summary.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}"
+      else
+          eval "${CHECKER} ${CHECKER_OPTS} -o ${CHECKER_OUTPUT} ${ARCHIVE}/summary.${CUBE_EXTENSION}"
+      fi
+    fi
+  fi
+  if [ -f ${ARCHIVE}/scout.${CUBE_EXTENSION} ]; then
+    NEWER1=`find ${ARCHIVE}/scout.${CUBE_EXTENSION} -prune -newer ${ARCHIVE}/trace.${CUBE_EXTENSION} 2>/dev/null`
+    NEWER2=`find ${ARCHIVE}/scout.${CUBE_EXTENSION} -prune -newer ${ARCHIVE}/trace.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} 2>/dev/null`
+    if [ -n "$FORCE" ] ||
+       [ ! -f ${ARCHIVE}/trace.${CUBE_EXTENSION} -a ! -f ${ARCHIVE}/trace.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} ] ||
+       [ -n "${NEWER1}" -a -n "${NEWER2}" ]; then
+      # Check availability of remapper
+      if [ -z "${MAPPER}" ]; then
+        echo "ERROR: cube_remap2 is not available!"
+        exit 1
+      fi
+      if [ ! -x "${MAPPER}" ]; then
+        echo "ERROR: ${MAPPER} is not executable!"
+        exit 1
+      fi
+      # Check availability of cube_dump
+      if [ -z "${DUMPER}" ]; then
+        echo "ERROR: cube_dump is not available!"
+        exit 1
+      fi
+      if [ ! -x "${DUMPER}" ]; then
+        echo "ERROR: ${DUMPER} is not executable!"
+        exit 1
+      fi
+      # Verify writability of experiment archive
+      if [ ! -w ${ARCHIVE} ]; then
+        echo "ERROR: Experiment archive ${ARCHIVE} needs to be writable!"
+        exit 1
+      fi
+      # Determine remapper specification file
+      SCALASCA_SPEC="${PKGDATADIR}/scout.spec"
+      CUBE_XML_VER=`${DUMPER} -w ${ARCHIVE}/scout.${CUBE_EXTENSION}\
+                    | grep 'Cube anchor.xml syntax version' \
+                    | sed -e 's/^.*: //'`
+      case ${CUBE_XML_VER} in
+        3.*|4.[123])
+            SCALASCA_SPEC="${PKGDATADIR}/scout_pre44.spec"
+            ;;
+      esac
+      # Verify accessibility of remapper specification file
+      if [ ! -r "${SCALASCA_SPEC}" ]; then
+        echo "ERROR: ${SCALASCA_SPEC} not readable!"
+        exit 1
+      fi
+      # check if experiment contains OpenMP and deactivates the (omp) idle thread metric if not
+      CONTAINS_PTHREADS=`${DUMPER} -m visits -t aggr ${ARCHIVE}/profile.${CUBE_EXTENSION} | grep   "pthread" | awk '{print $NF}' | grep -vc  ^0`
+      if [ ${CONTAINS_PTHREADS} -gt 0 ]; then
+        IDLEM=""
+      fi
+      echo "INFO: Post-processing trace analysis report..."
+      eval echo "INFO: Using spec: ${SCALASCA_SPEC}" ${QUIET}
+      eval "${MAPPER} -d ${IDLEM} -r ${SCALASCA_SPEC} -o ${ARCHIVE}/remap.out.${CUBE_EXTENSION}  ${ARCHIVE}/scout.${CUBE_EXTENSION} ${QUIET} 2>&1"
+      UNZIPPED=1 # `head -1 ${ARCHIVE}/remap.out | cut -c1-10 | grep xml`
+      if [ -z "${UNZIPPED}" ]; then
+        mv ${ARCHIVE}/remap.out.${CUBE_EXTENSION} ${ARCHIVE}/trace.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}
+      else
+        mv ${ARCHIVE}/remap.out.${CUBE_EXTENSION} ${ARCHIVE}/trace.${CUBE_EXTENSION}
+      fi
+    fi
+    if [ "${DO_CHECK}" = "true" ]; then
+      echo "INFO: Checking trace analysis report..."
+      CHECKER_OUTPUT=${ARCHIVE}/trace.${CHECKER_EXT}
+      if [ -z "${UNZIPPED} " ]; then
+          eval "${CHECKER} ${CHECKER_OPTS} -o ${CHECKER_OUTPUT} ${ARCHIVE}/trace.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}"
+      else
+          eval "${CHECKER} ${CHECKER_OPTS} -o ${CHECKER_OUTPUT} ${ARCHIVE}/trace.${CUBE_EXTENSION}"
+      fi
+    fi
+  fi
+
+  # Check whether to merge reports
+  CONF=${ARCHIVE}/scorep.cfg
+  LAST_T=`/bin/ls -1tr ${ARCHIVE}/trace.cube* 2>/dev/null | head -1`
+  LAST_S=`/bin/ls -1tr ${ARCHIVE}/summary.cube* 2>/dev/null | head -1`
+  if [ -f ${CONF} ] && [ -f "${LAST_T}" ] && [ -f "${LAST_S}" ]; then
+    # Got all necessary files
+    METRICS=`grep 'SCOREP_METRIC_ =' $CONF | cut -d= -f2`
+    if [ ${#METRICS} -gt 1 ]; then
+      # Worth merging HWC metrics from summary with trace cubefile
+      MERGED=${ARCHIVE}/trace+HWC.${CUBE_EXTENSION}
+      OLDER1=`find ${MERGED}* -prune -newer ${LAST_T} 2>/dev/null`
+      OLDER2=`find ${MERGED}* -prune -newer ${LAST_S} 2>/dev/null`
+      if [ -n "$FORCE" ] || [ -z "${OLDER1}" ] || [ -z "${OLDER2}" ]; then
+        # Check availability of merger
+        if [ -z "${MERGER}" ]; then
+          echo "ERROR: cube_merge is ot available!"
+          exit 1
+        fi
+        if [ ! -x "${MERGER}" ]; then
+          echo "ERROR: ${MERGER} is not executable!"
+          exit 1
+        fi
+        # Verify writability of experiment archive
+        if [ ! -w ${ARCHIVE} ]; then
+          echo "ERROR: Experiment archive ${ARCHIVE} needs to be writable!"
+          exit 1
+        fi
+        echo "INFO: Merging trace and HWC summary analysis reports..."
+        eval "${MERGER} -o ${ARCHIVE}/merge.out.${CUBE_EXTENSION} ${LAST_T} ${LAST_S} ${QUIET}"
+        UNZIPPED=`head -1 ${ARCHIVE}/merge.out.${CUBE_EXTENSION} | cut -c1-10 | grep xml`
+        if [ -z "${UNZIPPED}" ]; then
+          mv ${ARCHIVE}/merge.out.${CUBE_EXTENSION} ${MERGED}${CUBE_GZ_EXTENSION}
+        else
+          mv ${ARCHIVE}/merge.out.${CUBE_EXTENSION} ${MERGED}
+        fi
+        if [ -f ${ARCHIVE}/trace.stat ]; then
+           (cd ${ARCHIVE}; ln -s -f trace.stat trace+HWC.stat)
+        fi
+      fi
+    fi
+  fi
+
+  if [ -z "${FILE}" ]; then
+     # Check for existing file (in order of preference)
+     [ -f ${ARCHIVE}/summary.${CUBE_EXTENSION} ] && FILE=${ARCHIVE}/summary.${CUBE_EXTENSION}
+     [ -f ${ARCHIVE}/summary.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} ] && FILE=${ARCHIVE}/summary.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}
+     [ -f ${ARCHIVE}/trace.${CUBE_EXTENSION} ] && FILE=${ARCHIVE}/trace.${CUBE_EXTENSION} 
+     [ -f ${ARCHIVE}/trace.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} ] && FILE=${ARCHIVE}/trace.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}
+     [ -f ${ARCHIVE}/trace+HWC.${CUBE_EXTENSION} ] && FILE=${ARCHIVE}/trace+HWC.${CUBE_EXTENSION}
+     [ -f ${ARCHIVE}/trace+HWC.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION} ] && FILE=${ARCHIVE}/trace+HWC.${CUBE_EXTENSION}${CUBE_GZ_EXTENSION}
+  fi
+
+  if [ -z "${FILE}" ] && [ ${CUBE_FILES} -eq 0 ]; then
+    echo "ERROR: No known CUBE file in experiment archive '${ARCHIVE}'!"
+    exit 1
+  fi
+fi
+
+# Check whether to score analysis report
+if [ "${VIEW}" = "no" ]; then
+    # Check availability of scorer
+    if [ -z "${SCORER}" ]; then
+      echo "ERROR: scorep-score is not available!"
+      exit 1
+    fi
+    if [ ! -x "${SCORER}" ]; then
+      echo "ERROR: ${SCORER} is not executable!"
+      exit 1
+    fi
+
+    # XXXX scorep-score doesn't work well on remapped cubefiles
+    [ -f ${ARCHIVE}/scout.${CUBE_EXTENSION} ] && FILE=${ARCHIVE}/scout.${CUBE_EXTENSION} 
+    [ -f ${ARCHIVE}/profile.${CUBE_EXTENSION} ] && FILE=${ARCHIVE}/profile.${CUBE_EXTENSION}
+
+    SCORE=${ARCHIVE}/scorep.score
+    if [ -n "${FILTER}" ]; then
+        SCORE=${SCORE}_`basename ${FILTER}`
+        SCORER="${SCORER} -f ${FILTER}"
+    fi
+
+    echo "${SCORER} -r ${FILE} > ${SCORE}"
+    eval "${SCORER} -r ${FILE} > ${SCORE}"
+    echo "INFO: Score report written to ${SCORE}"
+    exit 0
+fi
+
+if [ -n "${FILTER}" ]; then
+    echo "INFO: Ignoring specified filter \"${FILTER}\" when not scoring!"
+fi
+
+# Check availability of CUBE viewer
+if [ -z "${VIEWER}" ]; then
+  echo "ERROR: cube viewer is not available!"
+  exit 1
+fi
+if [ ! -x "${VIEWER}" ]; then
+  echo "ERROR: ${VIEWER} is not executable!"
+  exit 1
+fi
+
+if [ -n "$FILE" ]; then
+  echo "INFO: Displaying ${FILE}..."
+  CUBE_DOCPATH="$SCALASCA_DOCDIR:$SCOREP_DOCDIR:$CUBE_DOCPATH" ${VIEWER} ${FILE}
+else
+  echo "INFO: Select CUBE file from archive directory ${ARCHIVE}..."
+  CUBE_DOCPATH="$SCALASCA_DOCDIR:$SCOREP_DOCDIR:$CUBE_DOCPATH" ${VIEWER} ${ARCHIVE}
+fi

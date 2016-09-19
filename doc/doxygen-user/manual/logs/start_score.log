@@ -1,0 +1,27 @@
+  % scalasca -examine -s scorep_bt_64_sum
+  INFO: Post-processing runtime summarization report...
+  scorep-score -r ./scorep_bt_64_sum/profile.cubex > ./scorep_bt_64_sum/scorep.score
+  INFO: Score report written to ./scorep_bt_64_sum/scorep.score
+
+  % head -n 20 scorep_bt_64_sum/scorep.score
+
+  Estimated aggregate size of event trace:                   3700GB
+  Estimated requirements for largest trace buffer (max_buf): 58GB
+  Estimated memory requirements (SCOREP_TOTAL_MEMORY):       58GB
+  (hint: When tracing set SCOREP_TOTAL_MEMORY=58GB to avoid intermediate flushes
+   or reduce requirements using USR regions filters.)
+
+  flt type     max_buf[B]          visits  time[s] time[%] time/     region
+                                                           visit[us]
+       ALL 62,076,748,138 152,783,214,921 60774.81   100.0      0.40 ALL
+       USR 62,073,899,966 152,778,875,273 58840.43    96.8      0.39 USR
+       MPI      2,267,202       2,909,568  1633.69     2.7    561.49 MPI
+       COM        580,970       1,430,080   300.69     0.5    210.26 COM
+
+       USR 20,525,692,668  50,517,453,756 12552.16    20.7      0.25  binvcrhs_
+       USR 20,525,692,668  50,517,453,756  8069.43    13.3      0.16  matmul_sub_
+       USR 20,525,692,668  50,517,453,756  6308.60    10.4      0.12  matvec_sub_
+       USR    447,119,556   1,100,528,112   130.68     0.2      0.12  exact_solution_
+       USR     50,922,378     124,121,508    19.78     0.0      0.16  binvrhs_
+       MPI        855,834         771,456    11.17     0.0     14.48  MPI_Isend
+       MPI        855,834         771,456     5.16     0.0      6.69  MPI_Irecv
