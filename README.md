@@ -1,2 +1,2 @@
 # scalasca
-The Scalasca perfomance analysis sweet. http://www.scalasca.org/
+The Scalasca perfomance analysis suite. http://www.scalasca.org/
